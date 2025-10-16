@@ -1,57 +1,153 @@
 import React, { useState } from "react";
 import { generateSite } from "../utils/generateSite";
-import { shuffle } from "../hooks/useShuffle";
+import { generateSingleSite } from "../utils/generateSingleSite";
+import { generateMultiSite } from "../utils/generateMultiSite";
 import { downloadHTML } from "../hooks/downloadHTML";
+import { shuffle } from "../hooks/useShuffle";
 
-export default function GeneratedSite() {
-  const [siteHTML, setSiteHTML] = useState(generateSite());
+export default function GeneratedSite({ mode }) {
+  const [siteHTML, setSiteHTML] = useState(generateSite("single"));
+  const [previewPages, setPreviewPages] = useState(null);
+  const [activePage, setActivePage] = useState("index.html");
 
-  // згенерувати новий сайт
-  const handleGenerate = () => {
-    setSiteHTML(generateSite());
+  // 🟡 Генерація сайту (single або multi)
+  const handleGenerate = async () => {
+    const generator =
+      mode === "single" ? generateSingleSite : generateMultiSite;
+    const pages = await generator(true); // 🟢 отримуємо HTML для попереднього перегляду
+    setPreviewPages(pages);
+    setActivePage("index.html");
   };
 
-  // перемішати секції, крім header/hero/footer
+  // 🟢 Завантаження ZIP
+  const handleDownload = async () => {
+    if (mode === "single") {
+      await generateSingleSite(false);
+    } else {
+      await generateMultiSite(false);
+    }
+  };
+
+  // 🔁 Перемішування секцій (для будь-якого режиму)
   const handleShuffle = () => {
+    if (!previewPages || !activePage) return;
+
+    // 1️⃣ Парсимо HTML вибраної сторінки
     const parser = new DOMParser();
-    const doc = parser.parseFromString(siteHTML, "text/html");
-    const allSections = Array.from(doc.body.children);
+    const doc = parser.parseFromString(previewPages[activePage], "text/html");
 
-    const fixedTop = allSections.slice(0, 2); // header + hero
-    const middle = allSections.slice(2, -1); // все між ними
-    const fixedBottom = allSections.slice(-1); // footer
+    // 2️⃣ Основні елементи
+    const header = doc.querySelector("nav, header");
+    const footer = doc.querySelector("footer, .footer");
+    const hero = doc.querySelector("#hero"); // 🔥 шукаємо саме по id="hero"
+    const contact = doc.querySelector(
+      "section.contact, section[id*='contact'], section[class*='contact']"
+    );
 
-    const shuffledMiddle = shuffle(middle);
-    const newOrder = [...fixedTop, ...shuffledMiddle, ...fixedBottom];
+    // 3️⃣ Усі секції
+    const allSections = Array.from(doc.querySelectorAll("section"));
+    let newBodyContent = "";
 
-    const htmlString = newOrder.map((el) => el.outerHTML).join("\n");
-    setSiteHTML(htmlString);
-  };
+    // === 🟢 SINGLE або INDEX (багатосторінковий) ===
+    if (
+      mode === "single" ||
+      (mode === "multi" && activePage === "index.html")
+    ) {
+      // середні секції між hero та contact
+      const middle = allSections.filter((s) => s !== hero && s !== contact);
+      const shuffledMiddle = shuffle(middle);
 
-  // завантажити HTML-файл
-  const handleDownload = () => {
-    downloadHTML(siteHTML);
+      // Фіксований порядок: hero завжди після header
+      newBodyContent = [
+        header?.outerHTML || "",
+        hero?.outerHTML || "", // 🟢 завжди друга
+        ...shuffledMiddle.map((s) => s.outerHTML),
+        contact?.outerHTML || "", // перед футером
+        footer?.outerHTML || "",
+      ].join("\n");
+    }
+
+    // === 🟡 MULTI (about, price, contact) — без hero ===
+    else if (
+      mode === "multi" &&
+      ["about.html", "price.html", "contact.html"].includes(activePage)
+    ) {
+      const sectionsWithoutStatic = allSections.filter(
+        (s) => s !== header && s !== footer
+      );
+      const shuffledSections = shuffle(sectionsWithoutStatic);
+
+      newBodyContent = [
+        header?.outerHTML || "",
+        ...shuffledSections.map((s) => s.outerHTML),
+        footer?.outerHTML || "",
+      ].join("\n");
+    }
+
+    // === 🔴 MULTI (bmodel, privacy, terms) — нічого не перемішуємо ===
+    else {
+      return;
+    }
+
+    // 4️⃣ Оновлення HTML
+    const newHtml = doc.documentElement.outerHTML.replace(
+      doc.body.outerHTML,
+      `<body>${newBodyContent}</body>`
+    );
+
+    setPreviewPages({
+      ...previewPages,
+      [activePage]: newHtml,
+    });
   };
 
   return (
-    <div className="text-center py-4">
-      <div className="mb-3">
-        <button className="btn btn-warning me-2" onClick={handleGenerate}>
-          🎲 Згенерувати новий сайт
+    <div className="text-center">
+      <div className="mb-3 d-flex flex-wrap justify-content-center gap-2">
+        <button className="btn btn-warning" onClick={handleGenerate}>
+          🎲 Згенерувати{" "}
+          {mode === "single" ? "односторінковий" : "багатосторінковий"} сайт
         </button>
-        <button className="btn btn-outline-dark me-2" onClick={handleShuffle}>
-          🔁 Перемішати секції
+
+        <button className="btn btn-outline-dark" onClick={handleShuffle}>
+          🔁 Перемішати секції ({mode === "single" ? "Single" : "Multi"})
         </button>
+
         <button className="btn btn-success" onClick={handleDownload}>
-          ⬇️ Завантажити HTML
+          ⬇️ Завантажити ZIP
         </button>
       </div>
 
-      <main
-        id="site-container"
-        className="text-start"
-        dangerouslySetInnerHTML={{ __html: siteHTML }}
-      />
+      {/* 🟣 Попередній перегляд */}
+      {previewPages && (
+        <div className="container mt-4">
+          {/* 🔹 Вкладки сторінок */}
+          <ul className="nav nav-tabs justify-content-center mb-3">
+            {Object.keys(previewPages).map((page) => (
+              <li className="nav-item" key={page}>
+                <button
+                  className={`nav-link ${activePage === page ? "active" : ""}`}
+                  onClick={() => setActivePage(page)}
+                >
+                  {page}
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {/* 🔹 Вбудований iframe для перегляду */}
+          <iframe
+            title={activePage}
+            srcDoc={previewPages[activePage]}
+            style={{
+              width: "100%",
+              height: "80vh",
+              border: "1px solid #ccc",
+              borderRadius: "8px",
+            }}
+          ></iframe>
+        </div>
+      )}
     </div>
   );
 }
