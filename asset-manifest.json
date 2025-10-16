@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/whites-generator/static/css/main.4abddbbe.css",
+    "main.js": "/whites-generator/static/js/main.6079382e.js",
+    "static/js/453.686d93a6.chunk.js": "/whites-generator/static/js/453.686d93a6.chunk.js",
+    "index.html": "/whites-generator/index.html",
+    "main.4abddbbe.css.map": "/whites-generator/static/css/main.4abddbbe.css.map",
+    "main.6079382e.js.map": "/whites-generator/static/js/main.6079382e.js.map",
+    "453.686d93a6.chunk.js.map": "/whites-generator/static/js/453.686d93a6.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.4abddbbe.css",
+    "static/js/main.6079382e.js"
+  ]
+}
