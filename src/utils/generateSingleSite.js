@@ -20,6 +20,10 @@ import { randomItem } from "../hooks/useRandomItem";
 // ---------------------------------------------------
 
 export async function generateSingleSite(previewOnly = false) {
+  const siteName = "whiteex"; // 🟢 зміни тут на актуальний домен без .com
+  const domain = `https://${siteName}.com`; // автоматично формується URL
+  const today = new Date().toISOString().split("T")[0]; // поточна дата у форматі YYYY-MM-DD
+
   const header = randomItem(headers);
   const footer = randomItem(footers);
 
@@ -37,8 +41,61 @@ export async function generateSingleSite(previewOnly = false) {
   const zip = new JSZip();
   Object.entries(pages).forEach(([name, html]) => zip.file(name, html));
 
+  // =====================================
+  // 🔹 ROBOTS.TXT
+  // =====================================
+  const robotsTxt = `
+User-agent: *
+Disallow:
+
+Sitemap: ${domain}/sitemap.xml
+`.trim();
+
+  zip.file("robots.txt", robotsTxt);
+
+  // =====================================
+  // 🔹 SITEMAP.XML
+  // =====================================
+  const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <url>
+    <loc>${domain}/index.html</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <url>
+    <loc>${domain}/bmodel.html</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>${domain}/privacy.html</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>${domain}/terms.html</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+</urlset>`.trim();
+
+  zip.file("sitemap.xml", sitemapXml);
+
+  // =====================================
+  // 🔵 Генеруємо ZIP-файл
+  // =====================================
   const blob = await zip.generateAsync({ type: "blob" });
-  saveAs(blob, `whiteex-single-${Date.now()}.zip`);
+  saveAs(blob, `${siteName}-single-${Date.now()}.zip`);
 }
 
 // ---------------------------------------------------
@@ -66,7 +123,7 @@ function buildIndexPage(header, footer) {
   // ✅ контактна форма завжди перед футером
   const allSections = [hero, ...shuffled, randomItem(contact)];
 
-  return wrapHTML("WhiteEx – головна", header, allSections, footer);
+  return wrapHTML("WhiteEx – головна", header, allSections, footer, true);
 }
 
 // ---------------------------------------------------
@@ -77,27 +134,63 @@ function buildSimplePage(header, footer, type) {
       <h2 class="h5 text-muted">Ця сторінка поки порожня</h2>
     </div>
   </section>`;
-  return wrapHTML(`WhiteEx – ${type}`, header, [empty], footer);
+  return wrapHTML(`WhiteEx – ${type}`, header, [empty], footer, false);
 }
 
 // ---------------------------------------------------
-function wrapHTML(title, header, sections, footer) {
+function wrapHTML(title, header, sections, footer, isHome = false) {
+  // умовно вставляємо canonical + cookie тільки якщо isHome === true
+  const extraHead = isHome
+    ? `
+    <meta name="description" content="${title}">
+    <link rel="canonical" href="https://www.whiteex.com/" />
+    <script>
+      function initCookieLoader() {
+        let e = !1;
+        window.addEventListener(
+          "scroll",
+          function () {
+            if (e) return;
+            e = !0;
+            const n = document.createElement("script");
+            (n.src = "./assets/js/cookie.min.js"),
+              (n.async = !0),
+              document.body.appendChild(n);
+          },
+          { once: !0 }
+        );
+      }
+      (window.cookieConfig = {
+        lang: "fr",
+        policy: "privacy.html",
+        useOverlay: !1,
+        required: ["essential"],
+        defaultOn: ["performance"],
+        preventClosure: !0,
+        preventScroll: !1,
+      }),
+        window.addEventListener("load", initCookieLoader);
+    </script>
+    <script async src="./assets/js/cookie.min.js"></script>
+  `
+    : "";
   return `<!DOCTYPE html>
 <html lang="uk">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${title}</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  <style>html { scroll-behavior: smooth; }</style>
-</head>
-<body>
-  ${header}
-  ${sections.join("\n")}
-  ${footer}
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="favicon.ico" type="image/x-icon" />
+    <title>${title}</title>
+    ${extraHead}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  </head>
+  <body>
+    ${header}
+    ${sections.join("\n")}
+    ${footer}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
 </html>`;
 }
 

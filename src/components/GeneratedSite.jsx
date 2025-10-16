@@ -4,6 +4,8 @@ import { generateSingleSite } from "../utils/generateSingleSite";
 import { generateMultiSite } from "../utils/generateMultiSite";
 import { downloadHTML } from "../hooks/downloadHTML";
 import { shuffle } from "../hooks/useShuffle";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 
 export default function GeneratedSite({ mode }) {
   const [siteHTML, setSiteHTML] = useState(generateSite("single"));
@@ -21,11 +23,20 @@ export default function GeneratedSite({ mode }) {
 
   // 🟢 Завантаження ZIP
   const handleDownload = async () => {
-    if (mode === "single") {
-      await generateSingleSite(false);
-    } else {
-      await generateMultiSite(false);
-    }
+    if (!previewPages) return;
+
+    const zip = new JSZip();
+    Object.entries(previewPages).forEach(([name, html]) =>
+      zip.file(name, html)
+    );
+
+    const blob = await zip.generateAsync({ type: "blob" });
+    const fileName =
+      mode === "single"
+        ? `whiteex-single-${Date.now()}.zip`
+        : `whiteex-multisite-${Date.now()}.zip`;
+
+    saveAs(blob, fileName);
   };
 
   // 🔁 Перемішування секцій (для будь-якого режиму)
