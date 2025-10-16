@@ -25,16 +25,70 @@ export default function GeneratedSite({ mode }) {
   const handleDownload = async () => {
     if (!previewPages) return;
 
+    const siteName = "whiteex"; // 🟢 зміни під свій домен без .com
+    const domain = `https://${siteName}.com`;
+    const today = new Date().toISOString().split("T")[0];
+
     const zip = new JSZip();
+
+    // 🔹 додаємо всі сторінки з preview
     Object.entries(previewPages).forEach(([name, html]) =>
       zip.file(name, html)
     );
 
+    // =====================================
+    // 🔹 ROBOTS.TXT
+    // =====================================
+    const robotsTxt = `
+User-agent: *
+Disallow:
+
+Sitemap: ${domain}/sitemap.xml
+`.trim();
+
+    zip.file("robots.txt", robotsTxt);
+
+    // =====================================
+    // 🔹 SITEMAP.XML
+    // =====================================
+    const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${domain}/index.html</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${domain}/bmodel.html</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${domain}/privacy.html</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${domain}/terms.html</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>`.trim();
+
+    zip.file("sitemap.xml", sitemapXml);
+
+    // =====================================
+    // 🔵 Генеруємо ZIP-файл
+    // =====================================
     const blob = await zip.generateAsync({ type: "blob" });
     const fileName =
       mode === "single"
-        ? `whiteex-single-${Date.now()}.zip`
-        : `whiteex-multisite-${Date.now()}.zip`;
+        ? `${siteName}-single-${Date.now()}.zip`
+        : `${siteName}-multisite-${Date.now()}.zip`;
 
     saveAs(blob, fileName);
   };
