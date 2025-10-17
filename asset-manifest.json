@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/whites-generator/static/css/main.4abddbbe.css",
-    "main.js": "/whites-generator/static/js/main.5ff7575c.js",
+    "main.js": "/whites-generator/static/js/main.c3e3e0b7.js",
     "static/js/453.686d93a6.chunk.js": "/whites-generator/static/js/453.686d93a6.chunk.js",
     "index.html": "/whites-generator/index.html",
     "main.4abddbbe.css.map": "/whites-generator/static/css/main.4abddbbe.css.map",
-    "main.5ff7575c.js.map": "/whites-generator/static/js/main.5ff7575c.js.map",
+    "main.c3e3e0b7.js.map": "/whites-generator/static/js/main.c3e3e0b7.js.map",
     "453.686d93a6.chunk.js.map": "/whites-generator/static/js/453.686d93a6.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.4abddbbe.css",
-    "static/js/main.5ff7575c.js"
+    "static/js/main.c3e3e0b7.js"
   ]
 }
