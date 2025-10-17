@@ -104,11 +104,13 @@ function buildIndexPage(header, footer) {
   // ✅ hero завжди перший
   const hero = randomItem(heroes);
 
-  // решта секцій, без hero
+  // ✅ priceSections завжди має бути присутня
+  const priceSection = randomItem(priceSections);
+
+  // решта секцій, без hero і без contact
   const pool = [
     randomItem(about),
     randomItem(whyChooseSections),
-    randomItem(priceSections),
     randomItem(teamSections),
     randomItem(tabSections),
     randomItem(sliderSection),
@@ -117,11 +119,18 @@ function buildIndexPage(header, footer) {
     randomItem(faqSections),
   ];
 
-  // беремо 6 рандомних секцій
-  const shuffled = shuffleArray(pool).slice(0, 6);
+  // перемішуємо решту
+  const shuffled = shuffleArray(pool).slice(0, 5);
+
+  // вставляємо priceSection у випадкове місце серед середніх секцій
+  const insertIndex = Math.floor(Math.random() * (shuffled.length + 1));
+  shuffled.splice(insertIndex, 0, priceSection);
 
   // ✅ контактна форма завжди перед футером
-  const allSections = [hero, ...shuffled, randomItem(contact)];
+  const contactSection = randomItem(contact);
+
+  // фінальний порядок: header → hero → середні секції (включаючи price) → contact → footer
+  const allSections = [hero, ...shuffled, contactSection];
 
   return wrapHTML("WhiteEx – головна", header, allSections, footer, true);
 }
