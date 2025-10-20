@@ -11,6 +11,7 @@ import { tabSections } from "../data/tabSections";
 import { sliderSection } from "../data/sliderSection";
 import { advantagesSections } from "../data/advantagesSections";
 import { reviewsSections } from "../data/reviewsSections";
+import { servicesSections } from "../data/servicesSections";
 import { faqSections } from "../data/faqSections";
 import { contact } from "../data/contact";
 import { footers } from "../data/footers";
@@ -116,6 +117,7 @@ function buildIndexPage(header, footer) {
     randomItem(sliderSection),
     randomItem(advantagesSections),
     randomItem(reviewsSections),
+    randomItem(servicesSections),
     randomItem(faqSections),
   ];
 

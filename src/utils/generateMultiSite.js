@@ -13,6 +13,7 @@ import { advantagesSections } from "../data/advantagesSections";
 import { reviewsSections } from "../data/reviewsSections";
 import { faqSections } from "../data/faqSections";
 import { contact } from "../data/contact";
+import { servicesSections } from "../data/servicesSections";
 import { footers } from "../data/footers";
 
 import { randomItem } from "../hooks/useRandomItem";
@@ -119,6 +120,7 @@ function buildIndexPage(header, footer) {
     randomItem(teamSections),
     randomItem(tabSections),
     randomItem(sliderSection),
+    randomItem(servicesSections),
     randomItem(advantagesSections),
     randomItem(reviewsSections),
     randomItem(faqSections),
