@@ -1,7 +1,9 @@
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
-import { headers } from "../data/headers";
+import { generateHeader } from "../data/headers";
+import { generateFooter } from "../data/footers";
+
 import { heroes } from "../data/heroes";
 import { about } from "../data/about";
 import { whyChooseSections } from "../data/whyChooseSections";
@@ -11,110 +13,96 @@ import { tabSections } from "../data/tabSections";
 import { sliderSection } from "../data/sliderSection";
 import { advantagesSections } from "../data/advantagesSections";
 import { reviewsSections } from "../data/reviewsSections";
+import { servicesSections } from "../data/servicesSections";
 import { faqSections } from "../data/faqSections";
 import { contact } from "../data/contact";
-import { servicesSections } from "../data/servicesSections";
-import { footers } from "../data/footers";
 
 import { randomItem } from "../hooks/useRandomItem";
+import { getSiteConfig } from "../store/siteConfig";
+import { addAssetsToZip } from "./zipAssets";
 
-// ---------------------------------------------------
+// =========================================================
 
 export async function generateMultiSite(previewOnly = false) {
-  const siteName = "whiteex"; // 🟢 зміни тут на актуальний домен без .com
-  const domain = `https://${siteName}.com`; // автоматично формується URL
-  const today = new Date().toISOString().split("T")[0]; // поточна дата у форматі YYYY-MM-DD
+  const config = getSiteConfig();
+  const siteName = config.siteName?.trim() || "website";
+  const domain = `https://${siteName}.com`;
+  const today = new Date().toISOString().split("T")[0];
 
-  const header = randomItem(headers);
-  const footer = randomItem(footers);
+  const header = generateHeader(config);
+  const footer = generateFooter(config);
+
   const usedSections = new Set();
 
   const pages = {
-    "index.html": buildIndexPage(header, footer),
-    "about.html": buildUniqueContentPage(header, footer, "about", usedSections),
-    "price.html": buildUniqueContentPage(header, footer, "price", usedSections),
-    "contact.html": buildUniqueContentPage(
+    "index.html": buildIndexPage(header, footer, config),
+    "about.html": buildUniquePage(
       header,
       footer,
-      "contact",
-      usedSections
+      "About",
+      usedSections,
+      config
     ),
-    "bmodel.html": buildSimplePage(header, footer),
-    "privacy.html": buildSimplePage(header, footer),
-    "terms.html": buildSimplePage(header, footer),
+    "price.html": buildUniquePage(
+      header,
+      footer,
+      "Pricing",
+      usedSections,
+      config
+    ),
+    "contact.html": buildUniquePage(
+      header,
+      footer,
+      "Contact",
+      usedSections,
+      config
+    ),
+    "bmodel.html": buildSimplePage(header, footer, "Business Model", config),
+    "privacy.html": buildSimplePage(header, footer, "Privacy Policy", config),
+    "terms.html": buildSimplePage(header, footer, "Terms of Use", config),
   };
 
   if (previewOnly) return pages;
 
-  // 🟢 створюємо zip
   const zip = new JSZip();
   Object.entries(pages).forEach(([name, html]) => zip.file(name, html));
 
-  // =====================================
-  // 🔹 ROBOTS.TXT
-  // =====================================
-  const robotsTxt = `
-User-agent: *
+  await addAssetsToZip(zip, config);
+
+  zip.file(
+    "robots.txt",
+    `User-agent: *
 Disallow:
+Sitemap: ${domain}/sitemap.xml`
+  );
 
-Sitemap: ${domain}/sitemap.xml
-`.trim();
-
-  zip.file("robots.txt", robotsTxt);
-
-  // =====================================
-  // 🔹 SITEMAP.XML
-  // =====================================
-  const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+  zip.file(
+    "sitemap.xml",
+    `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
+${Object.keys(pages)
+  .map(
+    (page) => `
+<url>
+  <loc>${domain}/${page}</loc>
+  <lastmod>${today}</lastmod>
+  <changefreq>${page === "index.html" ? "daily" : "monthly"}</changefreq>
+  <priority>${page === "index.html" ? "1.0" : "0.8"}</priority>
+</url>`
+  )
+  .join("")}
+</urlset>`
+  );
 
-  <url>
-    <loc>${domain}/index.html</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-
-  <url>
-    <loc>${domain}/bmodel.html</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>${domain}/privacy.html</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>${domain}/terms.html</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-</urlset>`.trim();
-
-  zip.file("sitemap.xml", sitemapXml);
-
-  // =====================================
-  // 🔵 Генеруємо ZIP-файл
-  // =====================================
   const blob = await zip.generateAsync({ type: "blob" });
   saveAs(blob, `${siteName}-multisite-${Date.now()}.zip`);
 }
 
-// --------------------------------------------
-// 🟡 Головна сторінка: hero після header, contact перед footer
-function buildIndexPage(header, footer) {
-  const heroesSection = randomItem(heroes);
-  const aboutSection = randomItem(about); // ✅ тільки тут і на about.html
-
-  const middleSections = [
-    aboutSection,
+// =========================================================
+function buildIndexPage(header, footer, config) {
+  const hero = randomItem(heroes);
+  const pool = [
+    randomItem(about),
     randomItem(whyChooseSections),
     randomItem(priceSections),
     randomItem(teamSections),
@@ -126,83 +114,83 @@ function buildIndexPage(header, footer) {
     randomItem(faqSections),
   ];
 
-  const shuffledMiddle = shuffleArray(middleSections).slice(0, 6);
+  const shuffled = shuffleArray(pool).slice(0, 6);
   const contactSection = randomItem(contact);
 
-  const orderedSections = [heroesSection, ...shuffledMiddle, contactSection];
-
-  const safeSections = orderedSections.filter(
-    (s) => !s.includes("<footer") && !s.includes('class="footer"')
+  return wrapHTML(
+    config.title?.trim() || `${config.siteName} — Home`,
+    header,
+    [hero, ...shuffled, contactSection],
+    footer,
+    true,
+    config
   );
-
-  return wrapHTML("WhiteEx – головна", header, safeSections, footer, true);
 }
 
-// --------------------------------------------
-// 🟢 Унікальні сторінки (about, price, contact)
-function buildUniqueContentPage(header, footer, type, usedSections) {
-  let sections = [];
+// =========================================================
+function buildUniquePage(header, footer, pageTitle, usedSections, config) {
+  const items = [
+    randomItem(whyChooseSections),
+    randomItem(teamSections),
+    randomItem(faqSections),
+  ].filter(Boolean);
 
-  const availableWhy = whyChooseSections.filter((s) => !usedSections.has(s));
-  const availableTeam = teamSections.filter((s) => !usedSections.has(s));
-  const availableFaq = faqSections.filter((s) => !usedSections.has(s));
+  items.forEach((s) => usedSections.add(s));
 
-  // ✅ тільки сторінка "about" отримує aboutSection
-  if (type === "about") {
-    const aboutSection = randomItem(about);
-    const sectionSet = [
-      aboutSection,
-      randomItem(availableWhy),
-      randomItem(availableTeam),
-      randomItem(availableFaq),
-    ].filter(Boolean);
-    sections = sectionSet;
-  }
-  // 🟡 сторінка "price" — без about
-  else if (type === "price") {
-    const sectionSet = [
-      randomItem(availableWhy),
-      randomItem(priceSections),
-      randomItem(availableFaq),
-    ].filter(Boolean);
-    sections = sectionSet;
-  }
-  // 🟢 сторінка "contact" — без about
-  else if (type === "contact") {
-    const coreSections = [
-      randomItem(availableWhy),
-      randomItem(availableTeam),
-      randomItem(availableFaq),
-    ].filter(Boolean);
-
-    const contactForm = randomItem(contact);
-    const insertIndex = Math.floor(Math.random() * (coreSections.length + 1));
-    coreSections.splice(insertIndex, 0, contactForm);
-    sections = coreSections;
-  }
-
-  sections.forEach((s) => usedSections.add(s));
-  return wrapHTML(`WhiteEx – ${type}`, header, sections, footer, false);
+  const siteName = config.siteName || "Website";
+  return wrapHTML(
+    `${siteName} — ${pageTitle}`,
+    header,
+    items,
+    footer,
+    false,
+    config
+  );
 }
 
-// --------------------------------------------
-// 🟣 Порожні сторінки
-function buildSimplePage(header, footer) {
-  const emptySection = `<section class="py-5 text-center bg-light">
-    <div class="container"><h2 class="h5 text-muted">Ця сторінка поки порожня</h2></div>
-  </section>`;
-  return wrapHTML("WhiteEx – інформація", header, [emptySection], footer);
+// =========================================================
+function buildSimplePage(header, footer, pageTitle, config) {
+  const siteName = config.siteName || "Website";
+  return wrapHTML(
+    `${siteName} — ${pageTitle}`,
+    header,
+    [
+      `<section class="py-5 text-center bg-light">
+        <div class="container"><h2 class="h5 text-muted">Coming soon...</h2></div>
+      </section>`,
+    ],
+    footer,
+    false,
+    config
+  );
 }
 
-// --------------------------------------------
-// 🧱 HTML обгортка
-function wrapHTML(title, header, sections, footer, isHome = false) {
-  // умовно вставляємо canonical + cookie тільки якщо isHome === true
-  const extraHead = isHome
-    ? `
-    <meta name="description" content="${title}">
-    <link rel="canonical" href="https://www.whiteex.com/" />
-    <script>
+// =========================================================
+// 🧠 SEO — ONLY homepage gets meta+canonical
+function wrapHTML(title, header, sections, footer, isHome, config) {
+  const lang = config.langAttr || "en";
+  const siteName = config.siteName || "website";
+  const description =
+    config.description?.trim() || `${siteName} official website`;
+  const domain = `https://${siteName}.com`;
+
+  return `<!DOCTYPE html>
+<html lang="${lang}">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<title>${title}</title>
+
+${
+  isHome
+    ? `<meta name="description" content="${description}"/>
+<link rel="canonical" href="${domain}/"/>`
+    : ""
+}
+
+<link rel="icon" href="favicon.ico"/>
+<script>
       function initCookieLoader() {
         let e = !1;
         window.addEventListener(
@@ -219,7 +207,7 @@ function wrapHTML(title, header, sections, footer, isHome = false) {
         );
       }
       (window.cookieConfig = {
-        lang: "fr",
+        lang: "${lang}",
         policy: "privacy.html",
         useOverlay: !1,
         required: ["essential"],
@@ -229,36 +217,25 @@ function wrapHTML(title, header, sections, footer, isHome = false) {
       }),
         window.addEventListener("load", initCookieLoader);
     </script>
-    <script async src="./assets/js/cookie.min.js"></script>
-  `
-    : "";
-  return `<!DOCTYPE html>
-<html lang="uk">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="favicon.ico" type="image/x-icon" />
-    <title>${title}</title>
-    ${extraHead}
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  </head>
-  <body>
-    ${header}
-    ${sections.join("\n")}
-    ${footer}
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
+    <script async="" src="./assets/js/cookie.min.js"></script>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body>
+${header}
+${sections.join("\n")}
+${footer}
+</body>
 </html>`;
 }
 
-// --------------------------------------------
-// 🔁 Функція перемішування
+// =========================================================
 function shuffleArray(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
+  const res = [...arr];
+  for (let i = res.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+    [res[i], res[j]] = [res[j], res[i]];
   }
-  return a;
+  return res;
 }

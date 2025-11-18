@@ -1,0 +1,21 @@
+.generator-inputs {
+  background: #f8f5ff;
+  border: 1px solid #e5dbff;
+}
+
+.generator-inputs .form-label {
+  font-weight: 600;
+  color: #3b1761;
+}
+
+.generator-inputs input,
+.generator-inputs select {
+  border-radius: 8px;
+  border: 1px solid #b18fff;
+}
+
+.generator-inputs input:focus,
+.generator-inputs select:focus {
+  border-color: #8b33ff;
+  box-shadow: 0 0 6px rgba(139, 51, 255, 0.4);
+}

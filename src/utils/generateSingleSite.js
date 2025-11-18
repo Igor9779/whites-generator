@@ -1,7 +1,9 @@
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
-import { headers } from "../data/headers";
+import { generateHeader } from "../data/headers";
+import { generateFooter } from "../data/footers";
+
 import { heroes } from "../data/heroes";
 import { about } from "../data/about";
 import { whyChooseSections } from "../data/whyChooseSections";
@@ -14,101 +16,72 @@ import { reviewsSections } from "../data/reviewsSections";
 import { servicesSections } from "../data/servicesSections";
 import { faqSections } from "../data/faqSections";
 import { contact } from "../data/contact";
-import { footers } from "../data/footers";
 
 import { randomItem } from "../hooks/useRandomItem";
+import { getSiteConfig } from "../store/siteConfig";
+import { addAssetsToZip } from "./zipAssets";
 
-// ---------------------------------------------------
+// =======================================================
 
 export async function generateSingleSite(previewOnly = false) {
-  const siteName = "whiteex"; // 🟢 зміни тут на актуальний домен без .com
-  const domain = `https://${siteName}.com`; // автоматично формується URL
-  const today = new Date().toISOString().split("T")[0]; // поточна дата у форматі YYYY-MM-DD
+  const config = getSiteConfig();
+  const siteName = config.siteName?.trim() || "website";
+  const lang = config.langAttr || "en";
+  const domain = `https://${siteName}.com`;
+  const today = new Date().toISOString().split("T")[0];
 
-  const header = randomItem(headers);
-  const footer = randomItem(footers);
+  const header = generateHeader(config);
+  const footer = generateFooter(config);
 
-  // 🔹 Формуємо сторінки
   const pages = {
-    "index.html": buildIndexPage(header, footer),
-    "bmodel.html": buildSimplePage(header, footer, "bmodel"),
-    "privacy.html": buildSimplePage(header, footer, "privacy"),
-    "terms.html": buildSimplePage(header, footer, "terms"),
+    "index.html": buildIndexPage(header, footer, config),
+    "bmodel.html": buildSimplePage(header, footer, "Business Model", config),
+    "privacy.html": buildSimplePage(header, footer, "Privacy Policy", config),
+    "terms.html": buildSimplePage(header, footer, "Terms of Use", config),
   };
 
-  if (previewOnly) return pages; // 🟢 Повертаємо сторінки для перегляду
+  if (previewOnly) return pages;
 
-  // 🔹 Інакше створюємо ZIP
   const zip = new JSZip();
   Object.entries(pages).forEach(([name, html]) => zip.file(name, html));
 
-  // =====================================
-  // 🔹 ROBOTS.TXT
-  // =====================================
-  const robotsTxt = `
-User-agent: *
+  await addAssetsToZip(zip, config);
+
+  zip.file(
+    "robots.txt",
+    `User-agent: *
 Disallow:
+Sitemap: ${domain}/sitemap.xml`
+  );
 
-Sitemap: ${domain}/sitemap.xml
-`.trim();
-
-  zip.file("robots.txt", robotsTxt);
-
-  // =====================================
-  // 🔹 SITEMAP.XML
-  // =====================================
-  const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+  zip.file(
+    "sitemap.xml",
+    `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
-
+${Object.keys(pages)
+  .map(
+    (page) => `
   <url>
-    <loc>${domain}/index.html</loc>
+    <loc>${domain}/${page}</loc>
     <lastmod>${today}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
+    <changefreq>${page === "index.html" ? "daily" : "monthly"}</changefreq>
+    <priority>${page === "index.html" ? "1.0" : "0.8"}</priority>
+  </url>`
+  )
+  .join("")}
+</urlset>`
+  );
 
-  <url>
-    <loc>${domain}/bmodel.html</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>${domain}/privacy.html</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>${domain}/terms.html</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-</urlset>`.trim();
-
-  zip.file("sitemap.xml", sitemapXml);
-
-  // =====================================
-  // 🔵 Генеруємо ZIP-файл
-  // =====================================
   const blob = await zip.generateAsync({ type: "blob" });
   saveAs(blob, `${siteName}-single-${Date.now()}.zip`);
 }
 
-// ---------------------------------------------------
-// index.html — hero перший після header + 6 випадкових + contact над футером
-function buildIndexPage(header, footer) {
-  // ✅ hero завжди перший
-  const hero = randomItem(heroes);
+// =======================================================
 
-  // ✅ priceSections завжди має бути присутня
+function buildIndexPage(header, footer, config) {
+  const hero = randomItem(heroes);
   const priceSection = randomItem(priceSections);
 
-  // решта секцій, без hero і без contact
   const pool = [
     randomItem(about),
     randomItem(whyChooseSections),
@@ -121,41 +94,73 @@ function buildIndexPage(header, footer) {
     randomItem(faqSections),
   ];
 
-  // перемішуємо решту
   const shuffled = shuffleArray(pool).slice(0, 5);
+  shuffled.splice(
+    Math.floor(Math.random() * (shuffled.length + 1)),
+    0,
+    priceSection
+  );
 
-  // вставляємо priceSection у випадкове місце серед середніх секцій
-  const insertIndex = Math.floor(Math.random() * (shuffled.length + 1));
-  shuffled.splice(insertIndex, 0, priceSection);
-
-  // ✅ контактна форма завжди перед футером
   const contactSection = randomItem(contact);
 
-  // фінальний порядок: header → hero → середні секції (включаючи price) → contact → footer
-  const allSections = [hero, ...shuffled, contactSection];
-
-  return wrapHTML("WhiteEx – головна", header, allSections, footer, true);
+  return wrapHTML(
+    config.title?.trim() || `${config.siteName} — Home`,
+    header,
+    [hero, ...shuffled, contactSection],
+    footer,
+    true,
+    config
+  );
 }
 
-// ---------------------------------------------------
-// прості сторінки (bmodel, privacy, terms)
-function buildSimplePage(header, footer, type) {
-  const empty = `<section class="py-5 text-center bg-light">
-    <div class="container">
-      <h2 class="h5 text-muted">Ця сторінка поки порожня</h2>
-    </div>
-  </section>`;
-  return wrapHTML(`WhiteEx – ${type}`, header, [empty], footer, false);
+// =======================================================
+
+function buildSimplePage(header, footer, pageTitle, config) {
+  const siteName = config.siteName || "Website";
+  const title = `${siteName} — ${pageTitle}`;
+
+  return wrapHTML(
+    title,
+    header,
+    [
+      `<section class="py-5 text-center bg-light">
+        <div class="container"><h2 class="h5 text-muted">Coming soon...</h2></div>
+      </section>`,
+    ],
+    footer,
+    false,
+    config
+  );
 }
 
-// ---------------------------------------------------
-function wrapHTML(title, header, sections, footer, isHome = false) {
-  // умовно вставляємо canonical + cookie тільки якщо isHome === true
-  const extraHead = isHome
-    ? `
-    <meta name="description" content="${title}">
-    <link rel="canonical" href="https://www.whiteex.com/" />
-    <script>
+// =======================================================
+// 🧠 SEO: meta description + canonical → тільки головна
+
+function wrapHTML(title, header, sections, footer, isHome, config) {
+  const lang = config.langAttr || "en";
+  const siteName = config.siteName || "website";
+  const domain = `https://${siteName}.com`;
+  const description =
+    config.description?.trim() || `${siteName} official website`;
+
+  return `<!DOCTYPE html>
+<html lang="${lang}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+  <title>${title}</title>
+
+  ${
+    isHome
+      ? `<meta name="description" content="${description}">
+  <link rel="canonical" href="${domain}/">`
+      : ""
+  }
+
+  <link rel="icon" href="favicon.ico">
+
+  <script>
       function initCookieLoader() {
         let e = !1;
         window.addEventListener(
@@ -172,7 +177,7 @@ function wrapHTML(title, header, sections, footer, isHome = false) {
         );
       }
       (window.cookieConfig = {
-        lang: "fr",
+        lang: "${lang}",
         policy: "privacy.html",
         useOverlay: !1,
         required: ["essential"],
@@ -182,35 +187,25 @@ function wrapHTML(title, header, sections, footer, isHome = false) {
       }),
         window.addEventListener("load", initCookieLoader);
     </script>
-    <script async src="./assets/js/cookie.min.js"></script>
-  `
-    : "";
-  return `<!DOCTYPE html>
-<html lang="uk">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="favicon.ico" type="image/x-icon" />
-    <title>${title}</title>
-    ${extraHead}
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  </head>
-  <body>
-    ${header}
-    ${sections.join("\n")}
-    ${footer}
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
+    <script async="" src="./assets/js/cookie.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body>
+  ${header}
+  ${sections.join("\n")}
+  ${footer}
+</body>
 </html>`;
 }
 
-// ---------------------------------------------------
-function shuffleArray(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
+// =======================================================
+
+function shuffleArray(a) {
+  const arr = [...a];
+  for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  return a;
+  return arr;
 }

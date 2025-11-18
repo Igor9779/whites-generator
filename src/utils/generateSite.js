@@ -1,6 +1,8 @@
 // src/utils/generateSite.js
 
-import { headers } from "../data/headers";
+import { generateHeader } from "../data/headers";
+import { generateFooter } from "../data/footers";
+
 import { heroes } from "../data/heroes";
 import { about } from "../data/about";
 import { whyChooseSections } from "../data/whyChooseSections";
@@ -12,57 +14,56 @@ import { reviewsSections } from "../data/reviewsSections";
 import { faqSections } from "../data/faqSections";
 import { sliderSection } from "../data/sliderSection";
 import { contact } from "../data/contact";
-import { footers } from "../data/footers";
-// 🔹 Якщо у тебе є інші секції (whyChoose, price, team і т.д.), імпортуй їх сюди
 
 import { randomItem } from "../hooks/useRandomItem";
 
 /**
- * Генерує структуру HTML-сайту як рядок
- * з випадковими секціями у заданому порядку.
+ * Генерує структуру HTML-сайту
+ * config → містить siteName, langAttr, address, phone, businessNumber тощо
  */
-export function generateSite() {
+export function generateSite(config) {
   const parts = [];
 
-  // 1. Header
-  parts.push(randomItem(headers));
+  // 🔹 Header (динамічний по мові та назві)
+  const header = generateHeader(config);
+  parts.push(header);
 
-  // 2. Hero
+  // 🔹 Hero
   parts.push(randomItem(heroes));
 
-  // 3. About
+  // 🔹 About
   parts.push(randomItem(about));
 
-  // 4️⃣ Why Choose Us
+  // 🔹 Why choose
   parts.push(randomItem(whyChooseSections));
 
-  // 5️⃣ Tabs / System Sections
+  // 🔹 Tabs / System
   parts.push(randomItem(tabSections));
 
-  // 6️⃣ Price or Services
+  // 🔹 Price
   parts.push(randomItem(priceSections));
 
-  // 7️⃣ Team
+  // 🔹 Team
   parts.push(randomItem(teamSections));
 
-  // 8️⃣ Advantages
+  // 🔹 Advantages
   parts.push(randomItem(advantagesSections));
 
-  // 9️⃣ Reviews
+  // 🔹 Reviews
   parts.push(randomItem(reviewsSections));
 
-  // 🔟 FAQ
+  // 🔹 FAQ
   parts.push(randomItem(faqSections));
 
-  // 11️⃣ Slider or Gallery
+  // 🔹 Slider
   parts.push(randomItem(sliderSection));
 
-  // 12️⃣ Contact
+  // 🔹 Contact
   parts.push(randomItem(contact));
 
-  // 5. Footer
-  parts.push(randomItem(footers));
+  // 🔹 Footer — тепер теж динамічний (бренд, адреса, телефон, BN)
+  const footer = generateFooter(config);
+  parts.push(footer);
 
-  // 6. Об’єднуємо все в єдиний HTML-рядок
   return parts.join("\n");
 }

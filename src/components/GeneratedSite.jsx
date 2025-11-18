@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import "./GeneratedSite.css";
 import { generateSite } from "../utils/generateSite";
 import { generateSingleSite } from "../utils/generateSingleSite";
 import { generateMultiSite } from "../utils/generateMultiSite";
@@ -6,14 +7,31 @@ import { downloadHTML } from "../hooks/downloadHTML";
 import { shuffle } from "../hooks/useShuffle";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { getSiteConfig, setSiteConfig } from "../store/siteConfig";
+import { addAssetsToZip } from "../utils/zipAssets";
 
 export default function GeneratedSite({ mode }) {
   const [siteHTML, setSiteHTML] = useState(generateSite("single"));
   const [previewPages, setPreviewPages] = useState(null);
   const [activePage, setActivePage] = useState("index.html");
+  const [formData, setFormData] = useState({
+    siteName: "",
+    address: "",
+    phone: "",
+    businessNumber: "",
+    langAttr: "en",
+    title: "",
+    description: "",
+  });
+
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setSiteConfig({ ...formData, [e.target.name]: e.target.value });
+  };
 
   // 🟡 Генерація сайту (single або multi)
   const handleGenerate = async () => {
+    setSiteConfig(formData);
     const generator =
       mode === "single" ? generateSingleSite : generateMultiSite;
     const pages = await generator(true); // 🟢 отримуємо HTML для попереднього перегляду
@@ -24,34 +42,33 @@ export default function GeneratedSite({ mode }) {
   // 🟢 Завантаження ZIP
   const handleDownload = async () => {
     if (!previewPages) return;
-
-    const siteName = "whiteex"; // 🟢 зміни під свій домен без .com
+    const config = getSiteConfig();
+    const siteName = config.siteName?.trim() || "website";
     const domain = `https://${siteName}.com`;
     const today = new Date().toISOString().split("T")[0];
 
     const zip = new JSZip();
 
-    // 🔹 додаємо всі сторінки з preview
+    // 🔹 додаємо всі сторінки
     Object.entries(previewPages).forEach(([name, html]) =>
       zip.file(name, html)
     );
 
-    // =====================================
     // 🔹 ROBOTS.TXT
-    // =====================================
-    const robotsTxt = `
+    zip.file(
+      "robots.txt",
+      `
 User-agent: *
 Disallow:
 
 Sitemap: ${domain}/sitemap.xml
-`.trim();
+  `.trim()
+    );
 
-    zip.file("robots.txt", robotsTxt);
-
-    // =====================================
     // 🔹 SITEMAP.XML
-    // =====================================
-    const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+    zip.file(
+      "sitemap.xml",
+      `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>${domain}/index.html</loc>
@@ -77,13 +94,13 @@ Sitemap: ${domain}/sitemap.xml
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
-</urlset>`.trim();
+</urlset>`.trim()
+    );
 
-    zip.file("sitemap.xml", sitemapXml);
+    // 🔹 Додаємо assets
+    await addAssetsToZip(zip, config);
 
-    // =====================================
     // 🔵 Генеруємо ZIP-файл
-    // =====================================
     const blob = await zip.generateAsync({ type: "blob" });
     const fileName =
       mode === "single"
@@ -168,6 +185,124 @@ Sitemap: ${domain}/sitemap.xml
 
   return (
     <div className="text-center">
+      <div className="generator-inputs container mb-4 p-3 rounded shadow-sm">
+        <h5 className="text-start mb-3" style={{ color: "#6a2ef0" }}>
+          🔧 Налаштування сайту
+        </h5>
+
+        <div className="row g-3">
+          <div className="col-md-6">
+            <label className="form-label">Title сайту</label>
+            <input
+              type="text"
+              name="title"
+              className="form-control"
+              value={formData.title || ""}
+              onChange={handleInputChange}
+              placeholder="Напр.: Professional Business Services"
+            />
+          </div>
+
+          <div className="col-md-6">
+            <label className="form-label">Meta Description</label>
+            <input
+              type="text"
+              name="description"
+              className="form-control"
+              value={formData.description || ""}
+              onChange={handleInputChange}
+              placeholder="Короткий опис сайту для SEO"
+            />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Назва сайту (без .com)</label>
+            <input
+              type="text"
+              className="form-control"
+              value={formData.siteName}
+              onChange={(e) =>
+                setFormData({ ...formData, siteName: e.target.value })
+              }
+              placeholder="Напр.: whiteex"
+              required
+            />
+          </div>
+
+          <div className="col-md-6">
+            <label className="form-label">Адреса компанії</label>
+            <input
+              type="text"
+              className="form-control"
+              value={formData.address}
+              onChange={(e) =>
+                setFormData({ ...formData, address: e.target.value })
+              }
+              placeholder="Напр.: 5820 51 St, AB, Canada"
+            />
+          </div>
+
+          <div className="col-md-6">
+            <label className="form-label">Телефон</label>
+            <input
+              type="text"
+              className="form-control"
+              value={formData.phone}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
+              placeholder="+17803322299"
+            />
+          </div>
+
+          <div className="col-md-6">
+            <label className="form-label">Business Number</label>
+            <input
+              type="text"
+              className="form-control"
+              value={formData.businessNumber}
+              onChange={(e) =>
+                setFormData({ ...formData, businessNumber: e.target.value })
+              }
+              placeholder="BN: XXXXXXXX"
+            />
+          </div>
+
+          <div className="col-md-6">
+            <label className="form-label">Мова HTML</label>
+            <select
+              className="form-select"
+              value={formData.langAttr}
+              onChange={(e) =>
+                setFormData({ ...formData, langAttr: e.target.value })
+              }
+            >
+              <option value="en">English (en)</option>
+              <option value="de">Deutsch (de)</option>
+              <option value="fr">Français (fr)</option>
+              <option value="ja">日本語 (ja)</option>
+              <option value="hr">Hrvatski (hr)</option>
+              <option value="sl">Slovensko (sl)</option>
+              <option value="uk">Українська (uk)</option>
+            </select>
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Cookie Script</label>
+            <select
+              className="form-select"
+              name="cookieVariant"
+              value={formData.cookieVariant}
+              onChange={handleInputChange}
+            >
+              <option value="v1">v1</option>
+              <option value="v2">v2</option>
+              <option value="v3">v3</option>
+              <option value="v4">v4</option>
+              <option value="v5">v5</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div className="mb-3 d-flex flex-wrap justify-content-center gap-2">
         <button className="btn btn-warning" onClick={handleGenerate}>
           🎲 Згенерувати{" "}
